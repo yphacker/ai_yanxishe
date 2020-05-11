@@ -1,0 +1,11 @@
+.DS_Store
+.idea
+.ipynb_checkpoints
+__pycache__
+*.pyc
+**/data
+**/check.py
+**/share
+49
+58
+金融用户评论分类
