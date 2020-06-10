@@ -12,13 +12,14 @@ from sklearn.model_selection import train_test_split, StratifiedKFold
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from ranger import Ranger
 from torch.utils.data import DataLoader
 from conf import config
 from model.net import Net
 from utils.data_utils import MyDataset
 from utils.data_utils import train_transform, val_transform, test_transform
 from utils.model_utils import accuracy, FocalLoss
-from utils.utils import AverageMeter, ProgressMeter
+from utils.utils import set_seed
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -54,8 +55,11 @@ def train(train_data, val_data, fold_idx=None):
     model = Net(model_name).to(device)
     # criterion = nn.CrossEntropyLoss()
     criterion = FocalLoss(0.5)
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-    scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.1)
+    # optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    # scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.1)
+    optimizer = Ranger(model.parameters(), lr=1e-3, weight_decay=0.0005)
+    # scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.1)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=4)
 
     if fold_idx is None:
         print('start')
@@ -67,7 +71,8 @@ def train(train_data, val_data, fold_idx=None):
     #     print('加载之前的训练模型')
     #     model.load_state_dict(torch.load(model_save_path))
 
-    best_val_acc = 0
+    best_val_score = 0
+    best_val_score_cnt = 0
     last_improved_epoch = 0
     adjust_lr_num = 0
     for cur_epoch in range(config.epochs_num):
@@ -90,9 +95,11 @@ def train(train_data, val_data, fold_idx=None):
                 train_acc = accuracy(probs, batch_y)
                 msg = 'the current step: {0}/{1}, train loss: {2:>5.2}, train acc: {3:>6.2%}'
                 print(msg.format(cur_step, len(train_loader), train_loss.item(), train_acc[0].item()))
-        val_loss, val_acc = evaluate(model, val_loader, criterion)
-        if val_acc >= best_val_acc:
-            best_val_acc = val_acc
+        val_loss, val_score = evaluate(model, val_loader, criterion)
+        if val_score >= best_val_score:
+            if val_score == best_val_score:
+                best_val_score_cnt += 1
+            best_val_score = val_score
             torch.save(model.state_dict(), model_save_path)
             improved_str = '*'
             last_improved_epoch = cur_epoch
@@ -100,18 +107,23 @@ def train(train_data, val_data, fold_idx=None):
             improved_str = ''
         msg = 'the current epoch: {0}/{1}, val loss: {2:>5.2}, val acc: {3:>6.2%}, cost: {4}s {5}'
         end_time = int(time.time())
-        print(msg.format(cur_epoch + 1, config.epochs_num, val_loss, val_acc,
+        print(msg.format(cur_epoch + 1, config.epochs_num, val_loss, val_score,
                          end_time - start_time, improved_str))
-        if cur_epoch - last_improved_epoch > config.patience_epoch:
-            print("No optimization for a long time, adjust lr...")
-            scheduler.step()
-            last_improved_epoch = cur_epoch  # 加上，不然会连续更新的
-            adjust_lr_num += 1
-            if adjust_lr_num > config.adjust_lr_num:
+        if cur_epoch - last_improved_epoch >= config.patience_epoch or best_val_score_cnt >= 3:
+            if adjust_lr_num >= config.adjust_lr_num:
                 print("No optimization for a long time, auto stopping...")
                 break
+            print("No optimization for a long time, adjust lr...")
+            # scheduler.step()
+            last_improved_epoch = cur_epoch  # 加上，不然会连续更新的
+            adjust_lr_num += 1
+            best_val_score_cnt = 0
+        scheduler.step()
     del model
     gc.collect()
+
+    if fold_idx is not None:
+        model_score[fold_idx] = best_val_score
 
 
 def predict():
@@ -151,6 +163,12 @@ def main(op):
             skf = StratifiedKFold(n_splits=n_splits, random_state=0, shuffle=True)
             for fold_idx, (train_idx, val_idx) in enumerate(skf.split(x, y)):
                 train(train_df.iloc[train_idx], train_df.iloc[val_idx], fold_idx)
+            score = 0
+            score_list = []
+            for fold_idx in range(config.n_splits):
+                score += model_score[fold_idx]
+                score_list.append('{:.4f}'.format(model_score[fold_idx]))
+            print('val score:{}, avg val score:{:.4f}'.format(','.join(score_list), score / config.n_splits))
         else:
             train_data, val_data = train_test_split(train_df, shuffle=True, test_size=0.1)
             print('train:{}, val:{}'.format(train_data.shape[0], val_data.shape[0]))
@@ -174,8 +192,6 @@ if __name__ == '__main__':
     model_name = args.model_name
     mode = args.mode
 
-    torch.manual_seed(0)
-    torch.backends.cudnn.deterministic = False
-    torch.backends.cudnn.benchmark = True
-
+    set_seed()
+    model_score = dict()
     main(args.operation)

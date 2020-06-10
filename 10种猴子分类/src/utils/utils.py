@@ -1,6 +1,9 @@
 # coding=utf-8
 # author=yphacker
 
+import numpy as np
+import torch
+
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
@@ -42,3 +45,10 @@ class ProgressMeter(object):
         num_digits = len(str(num_batches // 1))
         fmt = '{:' + str(num_digits) + 'd}'
         return '[' + fmt + '/' + fmt.format(num_batches) + ']'
+
+
+def set_seed():
+    np.random.seed(0)
+    torch.manual_seed(0)
+    torch.cuda.manual_seed_all(0)
+    torch.backends.cudnn.deterministic = True  # 保证每次结果一样

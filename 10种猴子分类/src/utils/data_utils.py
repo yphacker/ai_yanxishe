@@ -33,14 +33,13 @@ class MyDataset(Dataset):
 
 normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 train_transform = transforms.Compose([
-    transforms.Resize((config.img_size, config.img_size)),
-    transforms.ColorJitter(0.3, 0.3, 0.3, 0.15),
-    transforms.RandomHorizontalFlip(),
-    transforms.RandomVerticalFlip(),
-    transforms.RandomGrayscale(),
-    # transforms.RandomRotation(90),
-    FixedRotation([0, 90, 180, -90]),
-    transforms.ToTensor(),
+    transforms.Resize([config.img_resize, config.img_resize]),
+    transforms.RandomRotation(15),  # 随机旋转-15°~15°
+    transforms.RandomChoice([transforms.Resize([config.img_size, config.img_size]),
+                             transforms.CenterCrop([config.img_size, config.img_size])]),
+    transforms.RandomHorizontalFlip(),  # 水平翻转
+    transforms.ColorJitter(brightness=0.2, contrast=0.2),
+    transforms.ToTensor(),  # range [0, 255] -> [0.0,1.0]
     normalize,
 ])
 
