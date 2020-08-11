@@ -1,6 +1,6 @@
 # 看图识车
 ## data
-[链接](https://god.yanxishe.com/26)
+[链接](https://god.yanxishe.com/39)
 ## score
 |model|score|note|
 |:---:|:---:|:---:|
