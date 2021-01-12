@@ -1,0 +1,21 @@
+# 评论情感词提取
+## data
+[链接](https://god.yanxishe.com/103)
+## score
+|model|score|note|
+|:---:|:---:|:---:|
+
+|model|offline score|online score|note|
+|:---:|:---:|:---:|:---:|
+
+
+|model|score|note|
+|:---:|:---:|:---:|
+|share1||
+|share2||
+|share3||
+
+## script
+nohup python main.py  > share3.out 2>&1 &
+
+

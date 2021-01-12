@@ -6,7 +6,7 @@ from conf import config
 from transformers import RobertaTokenizer
 
 # pretrain_model_name = 'longformer-base-4096'
-pretrain_model_name = 'longformer-large-40966'
+pretrain_model_name = 'longformer-large-4096'
 pretrain_model_path = os.path.join(config.pretrain_model_path, pretrain_model_name)
 
 pretrain_model_name = 'roberta-base'
